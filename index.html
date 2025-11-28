@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Birthday Game V2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #E0F7FA;
+            --box-color: #FFF3E0;
+            --accent-color: #FF8A65;
+            --text-color: #5D4037;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* ล็อกหน้าจอไม่ให้เลื่อน */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle, #B2EBF2 10%, transparent 10%);
+            background-size: 30px 30px;
+            font-family: 'Mali', cursive;
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none; /* ป้องกันการซูมหรือเลื่อนบนมือถือ */
+        }
+
+        .container {
+            background-color: var(--box-color);
+            width: 90%;
+            max-width: 450px; /* ปรับให้พอดีมือถือ */
+            padding: 20px;
+            border-radius: 20px;
+            border: 5px solid var(--accent-color);
+            box-shadow: 5px 5px 0px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        h1 { font-size: 1.8rem; margin: 10px 0; color: var(--accent-color); }
+        p { font-size: 1.1rem; }
+
+        .btn-start {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            border-radius: 50px;
+            font-family: 'Mali', cursive;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #E64A19;
+            transition: transform 0.1s;
+        }
+        .btn-start:active { transform: translateY(4px); box-shadow: 0 1px 0 #E64A19; }
+
+        /* --- ส่วนของเกม --- */
+        #game-area {
+            position: relative;
+            width: 100%;
+            height: 350px; /* พื้นที่เกม */
+            background: white;
+            border: 2px dashed #FFCCBC;
+            border-radius: 15px;
+            overflow: hidden; /* สำคัญ: ตัดส่วนที่เกินออก */
+            margin-top: 15px;
+            touch-action: none;
+        }
+
+        .item {
+            position: absolute;
+            font-size: 3.5rem; /* ไอคอนใหญ่ขึ้น */
+            top: -80px; /* เริ่มต้นเหนือกล่อง */
+            cursor: pointer;
+            user-select: none;
+            /* เพิ่มพื้นที่กดให้กว้างขึ้น */
+            width: 80px;
+            height: 80px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .pop {
+            animation: popAnim 0.3s forwards;
+        }
+
+        @keyframes popAnim {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        /* --- หน้าจบ --- */
+        .photo-frame {
+            width: 150px; height: 150px; margin: 10px auto;
+            border-radius: 50%; border: 4px solid white;
+            box-shadow: 0 0 15px rgba(255,138,101,0.4);
+            overflow: hidden; background: #eee;
+        }
+        .photo-frame img { width: 100%; height: 100%; object-fit: cover; }
+
+    </style>
+</head>
+<body>
+
+    <div id="screen-start" class="container">
+        <img src="https://media.tenor.com/4z0apJUiVQYAAAAi/dudu-loves-bubu-gif.gif" height="150px" alt="">
+        <h1>🎉 ภารกิจวันเกิด!</h1>
+        <p>เก็บหัวใจให้ครบ 10 ดวง ❤️</p>
+        <br>
+        <button class="btn-start" onclick="initGame()">เริ่มเลย!</button>
+    </div>
+
+    <div id="screen-game" class="container" style="display: none;">
+        <h2>คะแนน: <span id="score-text" style="color:red; font-size:1.5em;">0</span> / 10</h2>
+        <div id="game-area"></div>
+    </div>
+
+    <div id="screen-end" class="container" style="display: none;">
+        <h1>🎂 Happy Birthday!</h1>
+       <img src="https://media.tenor.com/U7yqdWZSvEYAAAAi/dudu-butt.gif" height="150px" alt="">
+        <div style="background: white; padding: 15px; border-radius: 10px; margin-top:10px;">
+            <p>สุขสันต์วันเกิดนะ ❤️</p>
+            <p>จุม้วบๆๆ ❤️</p>
+
+        </div>
+        <button class="btn-start" style="font-size: 1rem; padding: 10px 20px; margin-top: 15px;" onclick="location.reload()">เล่นใหม่</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        // ตัวแปรระบบเกม
+        let score = 0;
+        const target = 10;
+        let gameLoop;
+        let isGameRunning = false;
+        
+        // ไอคอนที่จะหล่นลงมา
+        const icons = ['❤️', '🎂', '🎁', '🧸', '🍭'];
+
+        // เริ่มต้นเกม
+        function initGame() {
+            document.getElementById('screen-start').style.display = 'none';
+            document.getElementById('screen-game').style.display = 'block';
+            score = 0;
+            updateScore();
+            isGameRunning = true;
+            
+            // ปล่อยของลงมาทุกๆ 0.7 วินาที
+            gameLoop = setInterval(spawnItem, 700);
+        }
+
+        // ฟังก์ชันสร้างไอเทม
+        function spawnItem() {
+            if (!isGameRunning) return;
+
+            const area = document.getElementById('game-area');
+            const item = document.createElement('div');
+            item.className = 'item';
+            item.innerHTML = icons[Math.floor(Math.random() * icons.length)];
+            
+            // สุ่มตำแหน่งแนวนอน (ซ้าย-ขวา)
+            // ลบ 80 คือขนาดความกว้างปุ่ม เพื่อไม่ให้ตกขอบ
+            const maxLeft = area.offsetWidth - 80;
+            const randomLeft = Math.floor(Math.random() * maxLeft);
+            item.style.left = randomLeft + 'px';
+
+            // ความเร็วในการตก (Animation ด้วย JS เพื่อความชัวร์ในมือถือ)
+            let posTop = -80;
+            const speed = Math.random() * 2 + 2; // ความเร็ว 2-4 pixel ต่อเฟรม
+
+            // สร้างฟังก์ชันตก
+            function fall() {
+                if (!isGameRunning || item.classList.contains('pop')) return;
+                
+                posTop += speed;
+                item.style.top = posTop + 'px';
+
+                // ถ้าตกเลยขอบล่าง -> ลบทิ้ง
+                if (posTop > 400) {
+                    if(item.parentNode) item.remove();
+                } else {
+                    requestAnimationFrame(fall);
+                }
+            }
+
+            // ระบบสัมผัส (ใช้ onmousedown + ontouchstart เพื่อความชัวร์)
+            const handleTap = (e) => {
+                e.preventDefault(); // ป้องกันการซูมหรือเลือก text
+                if (item.classList.contains('pop')) return; // ถ้ากดไปแล้วห้ามกดซ้ำ
+
+                score++;
+                updateScore();
+                
+                // เอฟเฟกต์ระเบิด
+                item.classList.add('pop');
+                
+                // ลบ Element เมื่อเอฟเฟกต์จบ
+                setTimeout(() => {
+                    if(item.parentNode) item.remove();
+                }, 300);
+
+                if (score >= target) winGame();
+            };
+
+            item.addEventListener('mousedown', handleTap);
+            item.addEventListener('touchstart', handleTap, {passive: false});
+
+            area.appendChild(item);
+            requestAnimationFrame(fall);
+        }
+
+        function updateScore() {
+            document.getElementById('score-text').innerText = score;
+        }
+
+        function winGame() {
+            isGameRunning = false;
+            clearInterval(gameLoop);
+            
+            // รอแป๊บนึงค่อยโชว์หน้าจบ
+            setTimeout(() => {
+                document.getElementById('screen-game').style.display = 'none';
+                document.getElementById('screen-end').style.display = 'block';
+                fireConfetti();
+            }, 500);
+        }
+
+        function fireConfetti() {
+            // เช็คว่าโหลด library พลุมาได้ไหม ถ้าไม่ได้ก็ไม่ต้องยิง (กันจอขาว)
+            if (typeof confetti === 'function') {
+                var duration = 5 * 1000;
+                var end = Date.now() + duration;
+
+                (function frame() {
+                    confetti({
+                        particleCount: 5,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 }
+                    });
+                    confetti({
+                        particleCount: 5,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 }
+                    });
+
+                    if (Date.now() < end) {
+                        requestAnimationFrame(frame);
+                    }
+                }());
+            }
+        }
+    </script>
+</body>
+</html>
